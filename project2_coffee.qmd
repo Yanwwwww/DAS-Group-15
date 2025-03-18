@@ -15,7 +15,7 @@ execute:
   message: false
 ---
 
-```{r}  
+```{r}
 #| echo: true
 #| warning: false
 #| message: false
@@ -32,14 +32,16 @@ library(car)
 library(gt)
 library(tidyr)
 library(tibble)
+library(GGally)
+library(ggplot2)
 ```
 
 # Introduction
-
+Coffee quality is an important factor. In this study, we analyze data from the Coffee Quality Database collected by a non-profit organisation working internationally, which includes various attributes of coffee production, such as aroma, flavor, acidity, defect count, altitude, and harvest year. The primary objective is to understand how these features impact the classification of coffee quality as either good or poor.
+To achieve this, we will employ a Generalized Linear Model to explore the relationship between different coffee feathers.
 # Exploratory Data Analysis
 
 ## Data Analysis
-
 ```{r}
 #| echo: true
 data <- read.csv("dataset15.csv")
@@ -54,15 +56,15 @@ str(dataset)
 dataset$Qualityclass <- ifelse(dataset$Qualityclass == "Good", 1, 0)
 dataset$Qualityclass <- as.factor(dataset$Qualityclass)
 str(dataset)
-```
-  
-```{r}
 #Analyze the types and sizes of data
 dataset %>%
   group_by(country_of_origin) %>%
   summarise(count = n()) %>%
   arrange(desc(count))
 ```
+Previously, we looked at aroma, flavor, acidity, defect count, altitude, and harvest year as our numerical explanatory variables and Quanlityclass as our binary response variable(good/poor). We will examine if there is any relationship between different coffee feathers.
+For the data, first, remove rows that contain missing values. Then, assign "Good" as 1 and "Poor" as 0. Convert the Qualityclass variable into a factor and then into a numeric type. Finally, check whether the variable types are correct to ensure the code runs successfully.
+By checking the number of country_of_origin, the data contains 35 categories of countries. If we forcefully treat the country as a categorical variable, it will cause the dimensionality to explode in the subsequent analysis.
 
 ```{r}
 #| echo: true
@@ -105,6 +107,7 @@ print(nrow(coffee))
 #Standardize altitude_mean_meters
 coffee$altitude_mean_meters <- scale(coffee$altitude_mean_meters)
 ```
+As seen from the table @tbl-Summary, there is a large gap between the maximum and minimum values of the data. To improve data quality and prevent extreme values from interfering with the analysis results, we removed 15% of the outlier data. Additionally, to avoid the impact of different unit variables on the interpretability of regression coefficients, we performed centering on altitude_mean_meters.
 
 ```{r}
 #| echo: true
@@ -116,6 +119,19 @@ coffee %>%
   as.data.frame() %>% 
   rownames_to_column(var = "Variable") %>%
   gt()
+```
+From the table @tbl-Correlation, it can be seen that flavor has a high correlation with aroma and acidity, with correlation coefficients of 0.6034 and 0.6522, respectively, indicating the potential presence of collinearity.
+
+```{r}
+coffee_numeric <- coffee %>%
+  dplyr::select(aroma, flavor, acidity,category_two_defects, harvested) %>%
+  mutate(across(where(is.factor), as.numeric))
+
+ggpairs(coffee_numeric,
+        title = "Pairwise Correlation Analysis of Coffee Quality Factors",
+        upper = list(continuous = wrap("cor", size = 5)),
+        lower = list(continuous = wrap("points", alpha = 0.6)),
+        diag = list(continuous = wrap("densityDiag")))
 ```
 
 
@@ -129,7 +145,7 @@ ggplot(data = coffee, aes(x = Qualityclass, y = aroma, fill = Qualityclass)) +
   labs(x = "Qualityclass", y = "aroma")+ 
   theme(legend.position = "none")
 ```
-
+Here @fig-boxplot1 we look at a boxplot of aroma by qualityclass. we can see that high-quality batches of coffee usually have better aroma than low-quality coffee, while the aroma scores of low-quality batches vary more widely.
 ```{r}
 #| echo: true
 #| label: fig-boxplot2
@@ -139,7 +155,7 @@ ggplot(data = coffee, aes(x = Qualityclass, y = flavor, fill = Qualityclass)) +
   labs(x = "Qualityclass", y = "flavor")+ 
   theme(legend.position = "none")
 ```
-
+Here @fig-boxplot2 we look at a boxplot of flavor by qualityclass. we can see that high-quality batches of coffee usually have better flavor than low-quality coffee, while the flavor scores of low-quality batches vary more widely.
 ```{r}
 #| echo: true
 #| label: fig-boxplot3
@@ -149,7 +165,7 @@ ggplot(data = coffee, aes(x = Qualityclass, y = acidity, fill = Qualityclass)) +
   labs(x = "Qualityclass", y = "acidit")+ 
   theme(legend.position = "none")
 ```
-
+Here @fig-boxplot3 we look at a boxplot of acidity by qualityclass. The acidity scores of high-quality batches are mostly concentrated between 7.5 and 8.0, which is higher than those of low-quality batches, indicating that these coffees have more stable and higher acidity.
 ```{r}
 #| echo: true
 #| label: fig-boxplot4
@@ -159,7 +175,7 @@ ggplot(data = coffee, aes(x = Qualityclass, y = category_two_defects, fill = Qua
   labs(x = "Qualityclass", y = "category_two_defects")+ 
   theme(legend.position = "none")
 ```
-
+From @fig-boxplot4,both batches contain a small number of high-defect values, with maximum defect counts reaching approximately 6-7. However, overall, the low-quality batch has more defects, while the high-quality batch has fewer defects.
 ```{r}
 #| echo: true
 #| label: fig-boxplot5
@@ -169,7 +185,7 @@ ggplot(data = coffee, aes(x = Qualityclass, y = altitude_mean_meters, fill = Qua
   labs(x = "Qualityclass", y = "altitude_mean_meters")+ 
   theme(legend.position = "none")
 ```
-
+From @fig-boxplot5, coffee beans grown at high altitudes tend to produce higher-quality coffee, while lower-quality batches contain multiple lower-altitude outliers.
 ```{r}
 #| echo: true
 #| label: fig-boxplot6
@@ -179,7 +195,7 @@ ggplot(data = coffee, aes(x = Qualityclass, y = harvested, fill = Qualityclass))
   labs(x = "Qualityclass", y = "harvested")+ 
   theme(legend.position = "none")
 ```
-
+Here @fig-boxplot6, higher-quality batches are more concentrated in harvest years after 2014, while lower-quality batches have more samples from years before 2012.
 # Formal Analysis
 ## model selection
 ```{r}
@@ -187,7 +203,7 @@ ggplot(data = coffee, aes(x = Qualityclass, y = harvested, fill = Qualityclass))
 # check default baseline
 levels(coffee$Qualityclass)
 ```
-
+Note that the baseline category for binary response is 0, which is poor.
 
 ```{r}
 #| echo: true
@@ -207,7 +223,7 @@ formula(stepwise_glm)
 vif(stepwise_glm)
 model=stepwise_glm
 ```
-
+From Model 1, aroma, flavor, acidity, and altitude_mean_meters are the key variables influencing coffee quality, while category_two_defects and harvested are not significant predictors of Qualityclass and have been removed. The model has an AIC of 366.02 and a p-value < 0.001, indicating that it is statistically significant. All variables have VIF values below 2, suggesting no severe multicollinearity, and thus, no variables need to be excluded.
 ```{r}
 #| echo: true
 # Fit the model2
@@ -220,7 +236,7 @@ summ(model2)
 # Checking for co-linearity
 vif(model2)
 ```
-
+Model 2 examines the impact of aroma, flavor, and acidity on Qualityclass, while altitude_mean_meters was removed because its p-value was 0.07 in Model 1, which is greater than 0.05, indicating a weaker effect. In Model 2, all variables have p-values < 0.001, showing that they have a significant impact on coffee quality. The AIC is 367.33, slightly higher than 366.02 in Model 1. Since VIF < 2, there is no severe multicollinearity, and no variables need to be removed.
 ```{r}
 #| echo: true
 # Fit the GLM about Country
@@ -241,7 +257,7 @@ vif(stepwise_glm)
 
 model3=stepwise_glm
 ```
-
+In Model 3, the variable country_of_origin was added. All variables have p-values < 0.05, indicating that they have a significant impact on Qualityclass, particularly showing that the country of origin has a significant influence on coffee quality. Among the country variables, Colombia and Thailand have a positive impact on quality, while India has a negative impact. The AIC is 365.55, which is slightly better than 367.33 in Model 2. Since GVIF < 2, there is no severe multicollinearity.
 ```{r}
 #| echo: true
 # # Fit the GLM about country_group 
@@ -283,7 +299,7 @@ vif(stepwise_glm)
 
 model4=stepwise_glm
 ```
-
+In Model 4, countries were categorized into a classification variable based on the number of high-quality and low-quality samples. If a country's number of high-quality samples (q1) is greater than or equal to its number of low-quality samples (q0), it is labeled as "more good"; otherwise, it is labeled as "more poor". In this model, all variables are highly significant, and the model's AIC is 347.9, making it superior to Model 3.
 ```{r}
 #| echo: true
 # Likelihood Ratio Test (LRT), used to compare the goodness of fit between two GLM models
@@ -297,34 +313,66 @@ anova(model3, model4)
 # select model4 as best model
 ```
 
+```{r}
+#| echo: true
+#| label: tbl-comparison
+#| tbl-cap: Model comparison values for different models
+Models <- c('model','model2','model3','model4') 
+model.comp.values.model1 <- glance(model)
+model.comp.values.model2 <- glance(model2)
+model.comp.values.model3 <- glance(model3)
+model.comp.values.model4 <- glance(model4)
+
+bind_rows(model.comp.values.model1,
+          model.comp.values.model2, 
+          model.comp.values.model3,
+          model.comp.values.model4,.id="Model") %>%
+  dplyr::select(Model,null.deviance,df.null,deviance,df.residual,AIC,BIC) %>%
+  mutate(Model=Models) %>%  
+kable(
+     digits = 2
+  )
+```
+As @tbl-comparison shows that Model4 has the smallest AIC values(347.9) and also has significant lowest BIC values(369.7). Therefore, We choose Model4 as our best model.
 ## log_odds
 ```{r}
 #| echo: true
 #estimated coefficients
 mod1coefs <- round(coef(model4),2)
 ```
+$$
+\ln \left( \frac{p}{1 - p} \right) = -137.99 + 5.66 \cdot \text{aroma} + 8.78 \cdot \text{flavor} + 3.97 \cdot \text{acidity} - 1.43 \cdot \mathbb{I}_{\text{country\_group}}(\text{more poor})
+$$
+where $p$=Prob(Quality score is good) and $1-p$=Prob(Quality score is Poor)as we already check and confirmed the baseline category response is Poor in the previous step.
+The intercept is -137.99, meaning that when all explanatory variables are zero, the log-odds of being classified as good quality is -137.99. 
+The log-odds of the quality score for the batch is Good increase by 5.66 for every unit increase in aroma grade when hold other variables constant.
+The log-odds of the quality score for the batch is Good increase by 8.78 for every unit increase in flavor grade when hold other variables constant.
+The log-odds of the quality score for the batch is Good increase by 3.97 for every unit increase in acidity grade when hold other variables constant.
+The log-odds of the quality score for the batch being Good decrease by 1.43 if the batch belongs to a country categorized as "more poor," compared to the "more good" reference category, holding other variables constant.
 
 ```{r}
 #| echo: true
-#| label: tbl-logodds95%CI
+#| label: tbl-logodds95CI
 #| tbl-cap: 95% Confidence Interval for the Log-odds
 confint(model4) %>%
   kable()
 ```
-
+For @tbl-logodds95CI, since all the confidence intervals, for flavor grade [6.64, 11.11], for aroma grade [3.84, 7.60], for acidity grade [2.23, 5.79], for country_groupmore_poor [-2.08, -0.82]) do not contain zero, this indicates that all explanatory variables in Model 4 are significant.
 ```{r}
 #| echo: true
-#| label: fig-95%logCIplot
+#| label: fig-95logCIplot
 #| fig-cap: 95% Confidence Interval Plot for Log-Odds
 plot_model(model4, show.values = TRUE, transform = NULL,
            title = "Log-Odds (Coffee Quanlityclass score)", show.p = FALSE)
 ```
-
+The @fig-95logCIplotagain confirmed the significance of the explanatory variables visually. Notice that flavor has the highest log-odds value, whereas country group [more poor] has the only negative log-odds value, indicating a negative impact on coffee quality.
 ```{r}
 # Add log-odds to the dataset
 coffee <- coffee %>%
   mutate(logodds.poor = predict(model4))
 ```
+
+For a more straightforward interpretation, we use the Odds Ratio scale.
 
 ## odd ratio
 ```{r}
@@ -338,19 +386,22 @@ model4 %>%
   rownames_to_column(var = "Variable") %>%
   gt()
 ```
+$$
+\frac{p}{1 - p} = \exp\left( -137.99 + 5.66 \cdot \text{aroma} + 8.78 \cdot \text{flavor} + 3.97 \cdot \text{acidity} - 1.43 \cdot \mathbb{I}_{\text{country\_group}}(\text{more poor}) \right)
+$$
+
+The value of the intercept 1.18 $\times^{-60}$ gives the odds of a batch being classified as good quality when all explanatory variables (aroma, flavor, acidity, and country group) are equal to zero.
+For aroma grade, the odds ratio is 285.93, which indicates that for every 1 unit increase in aroma grade, the odds of the batch being classified as good quality decrease by 99.65%.
+Similarly, for flavor grade, the odds ratio is 6497.56, meaning that for every 1 unit increase in flavor grade, the odds of being classified as good quality decrease by 99.98%.
+For acidity grade, the odds ratio is 52.99, meaning that for every 1 unit increase in acidity grade, the odds of being classified as good quality decrease by 98.11%.
+For country group (more poor), the odds ratio is 0.238, which is less than 1, indicating that coffee batches from the "more poor" country group are less likely to be classified as good quality. The odds of a batch from the "more poor" group being classified as poor quality are approximately 4.2 times higher than those from the "more good" group.Thus, being in the "more poor" group increases the likelihood of a batch being classified as poor quality compared to being in the "more good" group, holding all other variables constant.
 
 ```{r}
 #| echo: true
-#| label: fig-95%CIplot
-#| fig-cap: 95% Confidence Interval Plot for Odds
+#| label: fig-95CIplot
+#| fig-cap: 95Confidence Interval Plot for Odds
 plot_model(model4, show.values = TRUE, 
            title = "Odds (poor instructor)", show.p = FALSE)
-```
-
-```{r}
-# Add odds to the dataset
-coffee <- coffee %>%
-  mutate(odds.poor = exp(logodds.poor))
 ```
 
 ## Probabilities
@@ -359,6 +410,9 @@ coffee <- coffee %>%
 coffee <- coffee %>%
   mutate(probs.poor = fitted(model4))
 ```
+$$
+p = \frac{\exp\left( -137.99 + 5.66 \cdot \text{aroma} + 8.78 \cdot \text{flavor} + 3.97 \cdot \text{acidity} - 1.43 \cdot \mathbb{I}_{\text{country\_group}}(\text{more poor}) \right)}{1 + \exp\left( -137.99 + 5.66 \cdot \text{aroma} + 8.78 \cdot \text{flavor} + 3.97 \cdot \text{acidity} - 1.43 \cdot \mathbb{I}_{\text{country\_group}}(\text{more poor}) \right)}
+$$
 
 ```{r}
 #| echo: true
@@ -368,7 +422,7 @@ ggplot(data = coffee, aes(x = aroma, y = probs.poor)) +
   geom_smooth(method="glm", 
               method.args = list(family="binomial"), 
               se = FALSE) +
-  labs(x = "aroma", y = "Probability of quanilityclass being poor")
+  labs(x = "aroma", y = "Probability of quanilityclass being good")
 ```
 
 ```{r}
@@ -379,7 +433,7 @@ ggplot(data = coffee, aes(x = flavor, y = probs.poor)) +
   geom_smooth(method="glm", 
               method.args = list(family="binomial"), 
               se = FALSE) +
-  labs(x = "flavor", y = "Probability of quanilityclass being poor")
+  labs(x = "flavor", y = "Probability of quanilityclass being good")
 ```
 
 ```{r}
@@ -390,42 +444,16 @@ ggplot(data = coffee, aes(x = acidity, y = probs.poor)) +
   geom_smooth(method="glm", 
               method.args = list(family="binomial"), 
               se = FALSE) +
-  labs(x = "acidity", y = "Probability of quanilityclass being poor")
+  labs(x = "acidity", y = "Probability of quanilityclass being good")
 ```
 
 ```{r}
 #| echo: true
-#| label: fig-probability3
-#| fig-cap: Probability on acidity and Qualityclass.
-ggplot(data = coffee, aes(x = altitude_mean_meters, y = probs.poor)) +
-  geom_smooth(method="glm", 
-              method.args = list(family="binomial"), 
-              se = FALSE) +
-  labs(x = "altitude_mean_meters", y = "Probability of quanilityclass being poor")
+#| label: fig-probability4
+#| fig-cap: Probability on Country Group.
+plot_model(model4, type = "pred", title = "",
+           axis.title = c("Country Group", "Probability of Good Quality Coffee"))
 ```
-
-```{r}
-#| echo: true
-#| label: fig-probability3
-#| fig-cap: Probability on acidity and Qualityclass.
-ggplot(data = coffee, aes(x = altitude_mean_meters, y = probs.poor)) +
-  geom_smooth(method="glm", 
-              method.args = list(family="binomial"), 
-              se = FALSE) +
-  labs(x = "altitude_mean_meters", y = "Probability of quanilityclass being poor")
-```
-
-```{r}
-#| echo: true
-#| label: fig-probability3
-#| fig-cap: Probability on acidity and Qualityclass.
-ggplot(data = coffee, aes(x = harvested, y = probs.poor)) +
-  geom_smooth(method="glm", 
-              method.args = list(family="binomial"), 
-              se = FALSE) +
-  labs(x = "harvested", y = "Probability of quanilityclass being poor")
-```
-
 
 ```{r}
 #| echo: true
