@@ -208,11 +208,11 @@ Note that the baseline category for binary response is 0, which is poor.
 ```{r}
 #| echo: true
 # Fit the full model
-model <- glm(Qualityclass ~ aroma + flavor + acidity + category_two_defects + altitude_mean_meters + harvested, data = coffee,
+model1 <- glm(Qualityclass ~ aroma + flavor + acidity + category_two_defects + altitude_mean_meters + harvested, data = coffee,
              family = binomial(link = "logit"))
 
 # Stepwise regression using step()
-stepwise_glm <- step(model, direction = "both", trace = 1)
+stepwise_glm <- step(model1, direction = "both", trace = 1)
 
 # View the final model
 summary(stepwise_glm)
@@ -221,7 +221,7 @@ summ(stepwise_glm)
 formula(stepwise_glm)
 # Checking for co-linearity
 vif(stepwise_glm)
-model=stepwise_glm
+model1=stepwise_glm
 ```
 From Model 1, aroma, flavor, acidity, and altitude_mean_meters are the key variables influencing coffee quality, while category_two_defects and harvested are not significant predictors of Qualityclass and have been removed. The model has an AIC of 366.02 and a p-value < 0.001, indicating that it is statistically significant. All variables have VIF values below 2, suggesting no severe multicollinearity, and thus, no variables need to be excluded.
 ```{r}
@@ -299,13 +299,13 @@ vif(stepwise_glm)
 
 model4=stepwise_glm
 ```
-In Model 4, countries were categorized into a classification variable based on the number of high-quality and low-quality samples. If a country's number of high-quality samples (q1) is greater than or equal to its number of low-quality samples (q0), it is labeled as "more good"; otherwise, it is labeled as "more poor". In this model, all variables are highly significant, and the model's AIC is 347.9, making it superior to Model 3.
+In Model 4, countries were categorized into a classification variable based on the number of high-quality and low-quality samples. If a country's number of high-quality samples (q1) is greater than or equal to its number of low-quality samples (q0), it is labeled as "more good"; otherwise, it is labeled as "more poor". In this model, we use "good" as base group, therefore, all variables are highly significant with the model's AIC is 347.9, making it superior to Model 3.
 ```{r}
 #| echo: true
 # Likelihood Ratio Test (LRT), used to compare the goodness of fit between two GLM models
 # Determines whether adding more parameters significantly improves the model's explanatory power for the data.
 library(lmtest)
-lrtest(model, model2)
+lrtest(model1, model2)
 lrtest(model3, model2)
 lrtest(model4, model2)
 
@@ -317,8 +317,8 @@ anova(model3, model4)
 #| echo: true
 #| label: tbl-comparison
 #| tbl-cap: Model comparison values for different models
-Models <- c('model','model2','model3','model4') 
-model.comp.values.model1 <- glance(model)
+Models <- c('model1','model2','model3','model4') 
+model.comp.values.model1 <- glance(model1)
 model.comp.values.model2 <- glance(model2)
 model.comp.values.model3 <- glance(model3)
 model.comp.values.model4 <- glance(model4)
