@@ -39,6 +39,7 @@ library(ggplot2)
 # Introduction
 Coffee quality is an important factor. In this study, we analyze data from the Coffee Quality Database collected by a non-profit organisation working internationally, which includes various attributes of coffee production, such as aroma, flavor, acidity, defect count, altitude, and harvest year. The primary objective is to understand how these features impact the classification of coffee quality as either good or poor.
 To achieve this, we will employ a Generalized Linear Model to explore the relationship between different coffee feathers.
+
 # Exploratory Data Analysis
 
 ## Data Analysis
